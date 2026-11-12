@@ -1,0 +1,79 @@
+{
+  "format": 1,
+  "title": {
+    "en": "lazyfoxy33-dev DSH plugins",
+    "zh": "lazyfoxy33-dev DSH 插件"
+  },
+  "description": {
+    "en": "Community DSH plugin bundles",
+    "zh": "社区 DSH 插件 bundle"
+  },
+  "metadata": {
+    "categories": {
+      "productivity": {
+        "title": {
+          "en": "Productivity",
+          "zh": "效率"
+        }
+      }
+    },
+    "labels": {
+      "community": {
+        "title": {
+          "en": "Community",
+          "zh": "社区"
+        }
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "dsh-prompt-suggest",
+      "title": {
+        "en": "Next prompt suggestions",
+        "zh": "下一步提示建议"
+      },
+      "description": {
+        "en": "Predicts your next message after an assistant reply and inserts it into the composer with Tab; learns from accept/dismiss.",
+        "zh": "助手回复后预测你的下一句话，按 Tab 填入输入框；根据采纳/忽略记录调整后续建议。"
+      },
+      "icon": "icons/dsh-prompt-suggest.svg",
+      "author": "lazyfoxy33-dev",
+      "homepage": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest#readme",
+      "repository": {
+        "url": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest"
+      },
+      "metadata": {
+        "category": "productivity",
+        "labels": [
+          "community"
+        ],
+        "keywords": [
+          "prompt",
+          "composer",
+          "suggestion",
+          "tab",
+          "learning",
+          "dsh"
+        ]
+      },
+      "dist-tags": {
+        "latest": "1.0.0"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1794497164,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest",
+            "commit": "7377e3af9ad5e0540408fee173498bb397feb06a"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1 <0.3.0"
+          }
+        }
+      ]
+    }
+  ]
+}
