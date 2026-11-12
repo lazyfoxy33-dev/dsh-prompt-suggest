@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Next prompt suggestions",
+    "description": "Suggests your next message after a reply; press Tab to accept it into the composer."
+  }
+}

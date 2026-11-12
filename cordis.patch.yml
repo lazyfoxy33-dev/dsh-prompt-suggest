@@ -1,0 +1,6 @@
+# Bundle patch for dsh-prompt-suggest.
+# The single row mounts the Host half (index.js); the browser half (client.js)
+# is served from the same package through the `dsh.client` manifest section.
+- insert:
+    - id: prompt-suggest
+      name: 'dsh-prompt-suggest'

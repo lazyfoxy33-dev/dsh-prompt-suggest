@@ -1,0 +1,64 @@
+{
+  "name": "dsh-prompt-suggest",
+  "version": "1.0.0",
+  "description": "Next-prompt suggestions in the DSH composer: predicts your next message from the conversation and inserts it with Tab; learns from accept/dismiss.",
+  "type": "module",
+  "license": "MIT",
+  "author": "lazyfoxy33-dev",
+  "homepage": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazyfoxy33-dev/dsh-prompt-suggest.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "deepseek",
+    "plugin",
+    "bundle",
+    "prompt",
+    "suggestion",
+    "composer",
+    "tab",
+    "ai"
+  ],
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0"
+  },
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "docs"
+  ],
+  "scripts": {
+    "test": "node --test test/host.test.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}
