@@ -7,9 +7,13 @@ also records accept/dismiss actions and uses them to condition later suggestions
 learning data on a **Learning data** page in the left sidebar.
 
 Inspired by the interaction model of OpenAI Codex "Composer predictions"; this is an independent
-implementation for DSH, not copied code.
+implementation for DSH, not copied code. It is one of several community implementations: see
+[Prior art and the DSH next-prompt ecosystem](docs/ECOSYSTEM.md) for alternatives, distribution, and
+trade-offs.
 
 ![Learning data page](docs/learning-panel.png)
+
+*Screenshots use sample learning data; the counts are illustrative, not measured accuracy.*
 
 ## Features
 
@@ -34,12 +38,15 @@ implementation for DSH, not copied code.
 
 ## Install
 
-Publishing to npm is not required. The repository is a DSH **bundle** (`dsh.bundle.patch`), so it installs
+This project is **not published to npm**. It is a DSH **bundle** (`dsh.bundle.patch`), so it installs
 straight from GitHub:
 
 - **Desktop app**: open **Plugins**, install a bundle, and use the spec
-  `github:lazyfoxy33-dev/dsh-prompt-suggest`.
-- **CLI**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest`
+  `github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`.
+- **CLI**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
+
+Pin a tag or commit for a reproducible install; `main` can move. See
+[Packaging and installation](docs/PACKAGING.md) for how npm and GitHub resolution work.
 
 The package is plain JavaScript and has **no install scripts**, so no build allowlist (`allowBuilds`) is
 needed. After installing, enable the **Next prompt suggestions** bundle/row if it is not enabled already,
@@ -110,11 +117,23 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
 
 ## Privacy
 
-- Prediction requests go only to the model provider already used by that session, and never write to the
-  session log.
-- The Host logs nothing and persists only local learning data (suggestion texts + counters). No telemetry,
-  no uploads, no conversation text in route responses or errors.
+- Prediction requests go to the model provider selected for the session (or pinned in `provider`/`model`
+  configuration), and never write to the session log. A request includes recent conversation context plus
+  bounded accepted/dismissed examples, so that content leaves the machine under the model provider's terms.
+- The Host logs nothing and runs no plugin-operated server, telemetry, or analytics. It persists only local
+  learning data (suggestion texts + counters), at `~/.dsh/storages/prompt_suggest_learning.json`.
 - Learning data lives in the local DSH profile; clearing it is a click away.
+- Learning conditions the prompt; it is not model training or fine-tuning, and it does not guarantee
+  prediction accuracy.
+
+## Scope and limitations
+
+- One suggestion per completed turn. There is no candidate cycling, manual "suggest again", word-by-word
+  acceptance, or Up/Down prompt history.
+- Tab or click fills the draft; there is no Enter-to-send path.
+- Web surface only.
+- It binds `Tab` in the composer and cannot coexist with another plugin that also binds Tab for
+  suggestions. See the compatibility notes in [ECOSYSTEM.md](docs/ECOSYSTEM.md).
 
 ## Development
 
@@ -131,6 +150,8 @@ Repository layout:
 | `cordis.patch.yml` | Bundle patch inserting the `prompt-suggest` row |
 | `locale/` | Plugin Manager display metadata (`meta.title`, `meta.description`) |
 | `docs/DESIGN.md` | Implementation contract and design notes |
+| `docs/ECOSYSTEM.md` | Prior art: similar DSH plugins, differences, compatibility |
+| `docs/PACKAGING.md` | How npm and GitHub installation work; why this project has no npm package |
 | `docs/*.png` | Screenshots used by this README |
 
 The Host half has no imports; the browser half uses only the module-table `react` export, so there is no

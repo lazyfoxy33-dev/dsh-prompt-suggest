@@ -6,8 +6,11 @@
 **学习数据**页面查看统计。
 
 交互参考 OpenAI Codex 的 Composer predictions；本插件为独立的 DSH 实现，未复制其代码。
+同类项目不止一个：差异、分发方式和兼容性见 [同类插件与生态](docs/ECOSYSTEM.zh.md)。
 
 ![学习数据页](docs/learning-panel.png)
+
+*截图中使用示例学习数据，数字仅作展示，不代表真实预测准确率。*
 
 ## 功能
 
@@ -30,10 +33,14 @@
 
 ## 安装
 
-无需发布到 npm。仓库是一个 DSH **bundle**（声明了 `dsh.bundle.patch`），可直接从 GitHub 安装：
+本项目**未发布到 npm**。仓库是一个 DSH **bundle**（声明了 `dsh.bundle.patch`），可直接从 GitHub 安装：
 
-- **桌面应用**：打开 **插件**，安装 bundle，填入 `github:lazyfoxy33-dev/dsh-prompt-suggest`。
-- **CLI**：`dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest`
+- **桌面应用**：打开 **插件**，安装 bundle，填入
+  `github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`。
+- **CLI**：`dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
+
+建议固定 tag 或 commit，`main` 会移动。npm / GitHub 两种解析方式见
+[打包与安装](docs/PACKAGING.md)。
 
 包是纯 JavaScript，**没有安装脚本**，因此不需要 `allowBuilds` 授权。安装后在插件管理器中启用
 **Next prompt suggestions** 行（若未启用），并刷新一次页面。
@@ -102,9 +109,20 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
 
 ## 隐私
 
-- 预测请求只发往该会话原本使用的模型提供商，且不写入会话日志。
-- Host 不写日志，只在本机持久化学习数据（建议文本+计数）；无遥测、不上传；接口响应与错误中不含对话正文。
+- 预测请求发往该会话选择的模型提供商（或在配置中固定的 `provider`/`model`），且不写入会话日志。
+  请求会带上最近的对话上下文和有限的采纳/忽略示例，因此这部分内容会按模型提供商的服务条款离开本机。
+- Host 不写日志，不运行插件自带的服务器，无遥测、无分析；只在本机持久化学习数据（建议文本 + 计数），
+  位于 `~/.dsh/storages/prompt_suggest_learning.json`。
 - 学习数据存在本机 DSH profile 中，可随时一键清空。
+- 学习只会条件化提示词，不是训练模型或微调权重，也不保证预测准确率。
+
+## 范围与限制
+
+- 每轮只给一条建议；没有候选项切换、手动“再建议一次”、逐词采纳、↑/↓ 历史回滚。
+- 以 Tab 或点击填入草稿；没有 Enter 直接发送路径。
+- 仅 Web 界面。
+- 占用输入框的 `Tab`，不能与另一个同样占用 Tab 的建议插件共存；兼容性说明见
+  [ECOSYSTEM.zh.md](docs/ECOSYSTEM.zh.md)。
 
 ## 开发
 
@@ -119,6 +137,8 @@ node --test test/host.test.mjs   # Host 单测（提示词、学习存储、路�
 | `cordis.patch.yml` | bundle 补丁，插入 `prompt-suggest` 行 |
 | `locale/` | 插件管理器显示元数据（`meta.title` / `meta.description`） |
 | `docs/DESIGN.md` | 实现契约与设计记录 |
+| `docs/ECOSYSTEM.zh.md` | 同类插件、差异与兼容性 |
+| `docs/PACKAGING.md` | npm 与 GitHub 安装机制、为何不发 npm 包 |
 | `docs/*.png` | README 截图 |
 
 Host 半无 import；浏览器半只使用模块表的 `react`，无需构建步骤。
