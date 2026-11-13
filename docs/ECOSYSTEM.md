@@ -77,7 +77,7 @@ Trade-offs compared with the projects above:
 - Only one suggestion at a time; no candidate cycling, word-by-word acceptance, manual "suggest again"
   button, or prompt history recall (Up/Down).
 - Web surface only.
-- No npm package, so installation is GitHub-based; competing projects have one-line npm installs.
+- Published on npm as `dsh-prompt-suggest`; GitHub and Discover installs are also supported.
 - It binds Tab in the composer, so it cannot coexist with another plugin that also claims Tab for
   suggestions.
 

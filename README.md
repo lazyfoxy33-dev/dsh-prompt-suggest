@@ -38,19 +38,16 @@ trade-offs.
 
 ## Install
 
-This project is **not published to npm**. It is a DSH **bundle** (`dsh.bundle.patch`), so it installs
-straight from GitHub:
+Published on npm as **`dsh-prompt-suggest`**. It is also a DSH **bundle** (`dsh.bundle.patch`), so it can
+install from npm, GitHub, or the Discover index.
 
-- **Desktop app**: open **Plugins**, install a bundle, and use the spec
-  `github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`.
-- **CLI**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
+- **npm**: `dsh plugin --profile <profile> add dsh-prompt-suggest@1.0.0`
+- **GitHub**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
+- **Desktop app**: open **Plugins**, install a bundle, and use either spec.
 
-Pin a tag or commit for a reproducible install; `main` can move. See
-[Packaging and installation](docs/PACKAGING.md) for how npm and GitHub resolution work.
-
-The package is plain JavaScript and has **no install scripts**, so no build allowlist (`allowBuilds`) is
-needed. After installing, enable the **Next prompt suggestions** bundle/row if it is not enabled already,
-then reload the page once.
+Pin a version or tag for a reproducible install. The package is plain JavaScript and has **no install
+scripts**, so no build allowlist (`allowBuilds`) is needed. After installing, enable the **Next prompt
+suggestions** bundle/row if it is not enabled already, then reload the page once.
 
 Uninstall by removing the `dsh-prompt-suggest` bundle in the Plugin Manager, or
 `dsh plugin --profile <profile> remove dsh-prompt-suggest`.
@@ -151,7 +148,6 @@ Repository layout:
 | `locale/` | Plugin Manager display metadata (`meta.title`, `meta.description`) |
 | `docs/DESIGN.md` | Implementation contract and design notes |
 | `docs/ECOSYSTEM.md` | Prior art: similar DSH plugins, differences, compatibility |
-| `docs/PACKAGING.md` | How npm and GitHub installation work; why this project has no npm package |
 | `docs/*.png` | Screenshots used by this README |
 
 The Host half has no imports; the browser half uses only the module-table `react` export, so there is no
