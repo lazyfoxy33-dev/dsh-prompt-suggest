@@ -6,9 +6,9 @@
 **学习数据**页面查看统计。
 
 交互参考 OpenAI Codex 的 Composer predictions；本插件为独立的 DSH 实现，未复制其代码。
-同类项目不止一个：差异、分发方式和兼容性见 [同类插件与生态](docs/ECOSYSTEM.zh.md)。
+同类项目不止一个：差异、分发方式和兼容性见 [同类插件与生态](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/docs/ECOSYSTEM.zh.md)。
 
-![学习数据页](docs/learning-panel.png)
+![学习数据页](https://raw.githubusercontent.com/lazyfoxy33-dev/dsh-prompt-suggest/main/docs/learning-panel.png)
 
 *截图中使用示例学习数据，数字仅作展示，不代表真实预测准确率。*
 
@@ -23,7 +23,7 @@
   两步确认"清空学习记录"。
 - 本地化（中/英/日/西/法/德/俄/葡），跟随宿主主题，支持深浅色。
 
-![建议行](docs/screenshot-suggestion.png)
+![建议行](https://raw.githubusercontent.com/lazyfoxy33-dev/dsh-prompt-suggest/main/docs/screenshot-suggestion.png)
 
 ## 兼容性
 
@@ -120,7 +120,7 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
 - 以 Tab 或点击填入草稿；没有 Enter 直接发送路径。
 - 仅 Web 界面。
 - 占用输入框的 `Tab`，不能与另一个同样占用 Tab 的建议插件共存；兼容性说明见
-  [ECOSYSTEM.zh.md](docs/ECOSYSTEM.zh.md)。
+  [ECOSYSTEM.zh.md](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/docs/ECOSYSTEM.zh.md)。
 
 ## 开发
 
@@ -142,4 +142,4 @@ Host 半无 import；浏览器半只使用模块表的 `react`，无需构建步
 
 ## 许可证
 
-MIT，见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/LICENSE)。

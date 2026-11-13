@@ -8,10 +8,10 @@ learning data on a **Learning data** page in the left sidebar.
 
 Inspired by the interaction model of OpenAI Codex "Composer predictions"; this is an independent
 implementation for DSH, not copied code. It is one of several community implementations: see
-[Prior art and the DSH next-prompt ecosystem](docs/ECOSYSTEM.md) for alternatives, distribution, and
+[Prior art and the DSH next-prompt ecosystem](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/docs/ECOSYSTEM.md) for alternatives, distribution, and
 trade-offs.
 
-![Learning data page](docs/learning-panel.png)
+![Learning data page](https://raw.githubusercontent.com/lazyfoxy33-dev/dsh-prompt-suggest/main/docs/learning-panel.png)
 
 *Screenshots use sample learning data; the counts are illustrative, not measured accuracy.*
 
@@ -28,7 +28,7 @@ trade-offs.
   and dismissed suggestions with relative times, refresh, and a two-step "Clear learning record" action.
 - Localized (zh/en/ja/es/fr/de/ru/pt), follows the host theme, light and dark.
 
-![Suggestion row](docs/screenshot-suggestion.png)
+![Suggestion row](https://raw.githubusercontent.com/lazyfoxy33-dev/dsh-prompt-suggest/main/docs/screenshot-suggestion.png)
 
 ## Compatibility
 
@@ -130,7 +130,7 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
 - Tab or click fills the draft; there is no Enter-to-send path.
 - Web surface only.
 - It binds `Tab` in the composer and cannot coexist with another plugin that also binds Tab for
-  suggestions. See the compatibility notes in [ECOSYSTEM.md](docs/ECOSYSTEM.md).
+  suggestions. See the compatibility notes in [ECOSYSTEM.md](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/docs/ECOSYSTEM.md).
 
 ## Development
 
@@ -155,4 +155,4 @@ build step.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/lazyfoxy33-dev/dsh-prompt-suggest/blob/main/LICENSE).
