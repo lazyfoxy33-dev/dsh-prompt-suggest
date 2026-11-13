@@ -33,14 +33,13 @@
 
 ## 安装
 
-已发布到 npm：**`dsh-prompt-suggest`**。它同时是一个 DSH **bundle**（声明了 `dsh.bundle.patch`），
-因此可以从 npm、GitHub 或 Discover 索引安装：
+本项目**未发布到 npm**。仓库是一个 DSH **bundle**（声明了 `dsh.bundle.patch`），可直接从 GitHub 安装：
 
-- **npm**：`dsh plugin --profile <profile> add dsh-prompt-suggest@1.0.0`
-- **GitHub**：`dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
-- **桌面应用**：打开 **插件**，安装 bundle，填入上述任一 spec。
+- **桌面应用**：打开 **插件**，安装 bundle，填入
+  `github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`。
+- **CLI**：`dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
 
-建议固定版本或 tag 以保证可复现。包是纯 JavaScript，**没有安装脚本**，因此不需要 `allowBuilds` 授权。
+建议固定 tag 或 commit，`main` 会移动。包是纯 JavaScript，**没有安装脚本**，因此不需要 `allowBuilds` 授权。
 安装后在插件管理器中启用 **Next prompt suggestions** 行（若未启用），并刷新一次页面。
 
 卸载：在插件管理器中移除 `dsh-prompt-suggest` bundle，或

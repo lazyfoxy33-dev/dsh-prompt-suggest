@@ -38,16 +38,16 @@ trade-offs.
 
 ## Install
 
-Published on npm as **`dsh-prompt-suggest`**. It is also a DSH **bundle** (`dsh.bundle.patch`), so it can
-install from npm, GitHub, or the Discover index.
+This project is **not published to npm**. It is a DSH **bundle** (`dsh.bundle.patch`), so it installs
+straight from GitHub:
 
-- **npm**: `dsh plugin --profile <profile> add dsh-prompt-suggest@1.0.0`
-- **GitHub**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
-- **Desktop app**: open **Plugins**, install a bundle, and use either spec.
+- **Desktop app**: open **Plugins**, install a bundle, and use the spec
+  `github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`.
+- **CLI**: `dsh plugin --profile <profile> add github:lazyfoxy33-dev/dsh-prompt-suggest#v1.0.0`
 
-Pin a version or tag for a reproducible install. The package is plain JavaScript and has **no install
-scripts**, so no build allowlist (`allowBuilds`) is needed. After installing, enable the **Next prompt
-suggestions** bundle/row if it is not enabled already, then reload the page once.
+Pin a tag or commit for a reproducible install; `main` can move. The package is plain JavaScript and has
+**no install scripts**, so no build allowlist (`allowBuilds`) is needed. After installing, enable the
+**Next prompt suggestions** bundle/row if it is not enabled already, then reload the page once.
 
 Uninstall by removing the `dsh-prompt-suggest` bundle in the Plugin Manager, or
 `dsh plugin --profile <profile> remove dsh-prompt-suggest`.
