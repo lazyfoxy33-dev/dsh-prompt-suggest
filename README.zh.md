@@ -106,6 +106,7 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
 ```
 
 `semanticCheck: false` 可跳过第二次语义校验调用；仅保留 commit/push 的窄兜底。
+最新一轮的助手回复会保留全文（上限为 `maxPromptChars`）；更早的消息仍按 `messageTextLimit` 截断。
 
 ## 隐私
 

@@ -114,6 +114,8 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
 ```
 
 `semanticCheck: false` skips the second verifier call; the narrow commit/push fallback remains.
+The latest assistant reply in the latest turn is kept in full up to `maxPromptChars`; older messages use
+`messageTextLimit`.
 
 ## Privacy
 

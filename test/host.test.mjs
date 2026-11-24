@@ -544,6 +544,22 @@ test('extractTranscript truncates each message and bounds the total prompt size'
   assert.doesNotMatch(bounded.text, /reply 10/)
 })
 
+test('extractTranscript keeps the latest assistant reply full and caps older messages', () => {
+  const long = 'x'.repeat(2000)
+  const events = [
+    eventUser(0, 'what happened?'),
+    eventAssistant(1, long),
+    eventUser(2, 'what now?'),
+    eventAssistant(3, long),
+    turnEndEvent(4),
+  ]
+  const { entries } = extractTranscript(events, { messageTextLimit: 32 })
+  const assistants = entries.filter((entry) => entry.role === 'assistant')
+  assert.equal(assistants.length, 2)
+  assert.equal(assistants[0].text.length, 32)
+  assert.equal(assistants[1].text.length, long.length)
+})
+
 test('extractTranscript includes compact tool activity with its result status', () => {
   const events = [
     eventUser(0, 'fix the test'),

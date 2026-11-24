@@ -73,7 +73,8 @@ Never include conversation text in the response or in errors/logs.
    `assistant/message` (text blocks), and compact tool activity: summarize each `tool/call` from its
    `description`/recognized command action/path hint and append `(ok)` or `(failed)` from the matching
    `tool/result`; never render raw command arguments. Keep the last `config.contextMessages` user/assistant
-   texts (default 10), each truncated to `config.messageTextLimit` (default 480) chars; cap tool rows to the
+   texts (default 10); older messages are truncated to `config.messageTextLimit` (default 480), while the latest
+assistant reply is kept full up to `config.maxPromptChars`; cap tool rows to the
    most recent `config.maxToolEntries` (default 6); total transcript bounded by `config.maxPromptChars`
    (default 8000) by dropping tool rows first and then the oldest remaining entries, so the latest request
    and reply survive longest. Derive `completedActions` (`commit`, `push`) only from successful tool calls

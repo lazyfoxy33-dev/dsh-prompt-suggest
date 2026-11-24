@@ -1100,8 +1100,9 @@ export function extractTranscript(events, config = {}) {
         break
       }
       case 'assistant/message': {
-        const text = truncateText(messageText(event.data?.message), resolved.messageTextLimit)
-        if (text !== '') entries.push({ role: 'assistant', text })
+        const fullText = messageText(event.data?.message)
+        const text = truncateText(fullText, resolved.messageTextLimit)
+        if (text !== '') entries.push({ role: 'assistant', text, fullText })
         break
       }
       case 'tool/call': {
@@ -1155,6 +1156,19 @@ export function extractTranscript(events, config = {}) {
     keepFrom = index
   }
   let window = limitToolEntries(entries.slice(keepFrom), resolved.maxToolEntries)
+
+  // The latest assistant reply is the state-bearing message. Keep it in full
+  // (up to the total prompt budget) while older messages stay capped by
+  // messageTextLimit; this lets the verifier see a completion claim at the end
+  // of a long final answer instead of only its first 480 characters.
+  for (let index = window.length - 1; index >= 0; index -= 1) {
+    if (window[index].role !== 'assistant') continue
+    if (typeof window[index].fullText === 'string' && window[index].fullText.length > window[index].text.length) {
+      window[index] = { ...window[index], text: truncateText(window[index].fullText, resolved.maxPromptChars) }
+    }
+    break
+  }
+
   let text = renderWindow(window)
 
   // Bound the whole transcript: tool rows carry the least predictive
@@ -1679,7 +1693,7 @@ async function verifySuggestion(deps, config, model, requestSignal, steps, candi
     ...steps.map((step) => `- ${step}`),
     '',
     'Latest assistant response:',
-    truncateText(assistantText, 1200) || '(none)',
+    truncateText(assistantText, config.maxPromptChars) || '(none)',
     '',
     'Candidate next user message:',
     candidate,
