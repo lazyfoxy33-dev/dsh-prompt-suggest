@@ -1688,7 +1688,7 @@ async function verifySuggestion(deps, config, model, requestSignal, steps, candi
   const controls = {
     provider: model.provider,
     model: model.model,
-    maxTokens: 12,
+    maxTokens: 64,
     ...(model.reasoningEffort !== undefined ? { reasoningEffort: model.reasoningEffort } : {}),
   }
   let collected = ''

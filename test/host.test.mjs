@@ -1748,6 +1748,21 @@ test('the semantic verifier allows a genuinely new next step after completed wor
   assert.ok(llm.calls.some((call) => call.system === VERIFIER_SYSTEM_PROMPT))
 })
 
+test('semanticCheck false skips the verifier and keeps the commit/push fallback', async () => {
+  const events = [
+    eventUser(1, 'commit and push this'),
+    eventToolCall(2, 'bash', 'call-push-fallback', '{"description":"Commit and push docs","command":"git commit -m docs && git push"}'),
+    eventToolResult(3, 'call-push-fallback', false),
+    eventAssistant(4, 'Committed and pushed.'),
+    turnEndEvent(5),
+  ]
+  const llm = fakeLlm({ pieces: ['提交推送'], verifierPieces: ['OK'] })
+  const { handler } = makeHandler({ events, llm, config: { semanticCheck: false } })
+  const result = await readJson(await handler(postRequest('s1')))
+  assert.deepEqual(result.body, { ok: true, suggestion: null, reason: 'already-done' })
+  assert.equal(llm.calls.length, 1)
+})
+
 test('a dissimilar candidate is not filtered by a dismissal', async () => {
   const { store } = seededLearningStore(learningRecord({ dismissed: [{ text: 'Commit the changes', at: 1 }] }))
   const llm = fakeLlm({ pieces: ['Run the failing tests'] })
