@@ -58,7 +58,7 @@
         ]
       },
       "dist-tags": {
-        "latest": "1.2.0"
+        "latest": "1.2.1"
       },
       "versions": [
         {
@@ -92,6 +92,18 @@
             "type": "git",
             "url": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest",
             "commit": "114d297529cd1755f746a9449b1031fe6bc0120a"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1 <0.3.0"
+          }
+        },
+        {
+          "version": "1.2.1",
+          "publishTimestamp": 1795530022,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/lazyfoxy33-dev/dsh-prompt-suggest",
+            "commit": "0101d7bcd891bc2cca999fbc5388ceeaf2c991e4"
           },
           "engines": {
             "dsh": ">=0.2.2-rc.1 <0.3.0"
