@@ -105,6 +105,8 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
     maxLearningChars: 160
 ```
 
+`semanticCheck: false` 可跳过第二次语义校验调用；仅保留 commit/push 的窄兜底。
+
 ## 隐私
 
 - 预测请求发往该会话选择的模型提供商（或在配置中固定的 `provider`/`model`），且不写入会话日志。

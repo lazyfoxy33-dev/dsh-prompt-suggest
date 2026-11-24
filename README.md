@@ -113,6 +113,8 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
     maxLearningChars: 160
 ```
 
+`semanticCheck: false` skips the second verifier call; the narrow commit/push fallback remains.
+
 ## Privacy
 
 - Prediction requests go to the model provider selected for the session (or pinned in `provider`/`model`
