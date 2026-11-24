@@ -14,6 +14,7 @@ import {
   PROMPT_SUGGEST_LEARNING_PATH,
   PROMPT_SUGGEST_PATH,
   SYSTEM_PROMPT,
+  VERIFIER_SYSTEM_PROMPT,
   apply,
   buildPrompt,
   createFeedbackHandler,
@@ -155,6 +156,7 @@ function fakeLlm(options = {}) {
     calls,
     stream(request) {
       calls.push(request)
+      const isVerifier = request.system === VERIFIER_SYSTEM_PROMPT
       return (async function* generate() {
         if (options.gate !== undefined) await options.gate
         if (options.throwOnCall === true) throw new Error('synthetic stream failure')
@@ -172,7 +174,9 @@ function fakeLlm(options = {}) {
             signal.addEventListener('abort', () => reject(abortError()), { once: true })
           })
         }
-        const pieces = options.pieces ?? ['Run ', 'the failing tests']
+        const pieces = isVerifier
+          ? (options.verifierPieces ?? ['OK'])
+          : (options.pieces ?? ['Run ', 'the failing tests'])
         for (const piece of pieces) yield { type: 'text-delta', index: 0, text: piece }
         yield { type: 'finish', reason: finishReason(options.finishKind ?? 'stop') }
       })()
@@ -357,6 +361,7 @@ test('normalizeConfig supplies contract defaults and validates overrides', () =>
     cacheTtlMs: 600000,
     cacheMaxEntries: 32,
     reasoningEffort: '',
+    semanticCheck: true,
     learningEnabled: true,
     maxLearningExamples: 8,
     maxLearningChars: 160,
@@ -403,6 +408,8 @@ test('normalizeConfig supplies contract defaults and validates overrides', () =>
   assert.equal(normalizeConfig(null).enabled, true)
   assert.equal(normalizeConfig({ enabled: 'no' }).enabled, true)
 
+  assert.equal(normalizeConfig({ semanticCheck: false }).semanticCheck, false)
+  assert.equal(normalizeConfig({ semanticCheck: 'no' }).semanticCheck, true)
   assert.equal(normalizeConfig({ learningEnabled: false }).learningEnabled, false)
   assert.equal(normalizeConfig({ learningEnabled: 'no' }).learningEnabled, true)
   assert.equal(normalizeConfig({ maxLearningExamples: 999 }).maxLearningExamples, 20)
@@ -659,13 +666,14 @@ test('buildPrompt carries the required system instructions and bounded context',
   assert.match(bare.user, /\(no conversation text\)/)
 })
 
-test('buildPrompt tells the model which commit/push actions are already done', () => {
-  const prompt = buildPrompt({ transcript: 'User: hi', completedActions: ['commit', 'push'] })
-  assert.match(
-    prompt.user,
-    /Completed actions in the latest turn: commit, push\. Do not suggest repeating these actions/,
-  )
-  assert.doesNotMatch(buildPrompt({ transcript: 'User: hi' }).user, /Completed actions/)
+test('buildPrompt tells the model which steps are already done', () => {
+  const prompt = buildPrompt({
+    transcript: 'User: hi',
+    completedSteps: ['bash: Commit and push docs', 'bash: Verify deployment'],
+  })
+  assert.match(prompt.user, /Steps already completed successfully in the latest turn/)
+  assert.match(prompt.user, /- bash: Commit and push docs\n- bash: Verify deployment/)
+  assert.doesNotMatch(buildPrompt({ transcript: 'User: hi' }).user, /Steps already completed/)
 })
 
 test('buildPrompt appends learning conditioning after the transcript', () => {
@@ -1713,12 +1721,31 @@ test('a commit/push candidate is suppressed after a successful push in the lates
     eventAssistant(4, 'Committed and pushed.'),
     turnEndEvent(5),
   ]
-  const llm = fakeLlm({ pieces: ['提交推送，然后确认定时器'] })
+  const llm = fakeLlm({ pieces: ['提交推送，然后确认定时器'], verifierPieces: ['REDUNDANT'] })
   const { handler } = makeHandler({ events, llm })
   const result = await readJson(await handler(postRequest('s1')))
   assert.deepEqual(result.body, { ok: true, suggestion: null, reason: 'already-done' })
-  assert.match(llm.calls[0].messages[0].content[0].text, /Completed actions in the latest turn: commit, push/)
-  assert.match(llm.calls[0].messages[0].content[0].text, /Tool: bash: Commit and push docs \(ok\)/)
+  assert.match(llm.calls[0].messages[0].content[0].text, /Steps already completed successfully in the latest turn/)
+  assert.match(llm.calls[0].messages[0].content[0].text, /- bash: Commit and push docs/)
+  const verifier = llm.calls.find((call) => call.system === VERIFIER_SYSTEM_PROMPT)
+  assert.ok(verifier, 'semantic verifier must be called after a successful step')
+  assert.match(verifier.messages[0].content[0].text, /Candidate next user message:\n提交推送/)
+})
+
+test('the semantic verifier allows a genuinely new next step after completed work', async () => {
+  const events = [
+    eventUser(1, 'commit and push this'),
+    eventToolCall(2, 'bash', 'call-push-ok', '{"description":"Commit and push docs","command":"git commit -m docs && git push"}'),
+    eventToolResult(3, 'call-push-ok', false),
+    eventAssistant(4, 'Committed and pushed.'),
+    turnEndEvent(5),
+  ]
+  const llm = fakeLlm({ pieces: ['检查最终状态并给出总结'], verifierPieces: ['OK'] })
+  const { handler } = makeHandler({ events, llm })
+  const result = await readJson(await handler(postRequest('s1')))
+  assert.equal(result.body.ok, true)
+  assert.equal(result.body.suggestion.text, '检查最终状态并给出总结')
+  assert.ok(llm.calls.some((call) => call.system === VERIFIER_SYSTEM_PROMPT))
 })
 
 test('a dissimilar candidate is not filtered by a dismissal', async () => {

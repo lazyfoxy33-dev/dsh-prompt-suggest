@@ -99,11 +99,13 @@ Never include conversation text in the response or in errors/logs.
    period; reject empty, `NONE`/`NONE.`/`无`/`N/A`, text equal to the latest user message, or text longer
    than `config.maxSuggestionChars` (default 96) **after** truncation? No — reject if longer than
    2 × limit, truncate at a word/character boundary to the limit otherwise.
-7. Completed-action guard: if the latest turn already succeeded at `push`, reject any candidate mentioning
-   commit/push; if it only succeeded at `commit`, reject commit-only candidates but allow "commit and push"
-   (the push is still pending). This is `isCompletedActionSuggestion`; rejection is
-   `{ok:true,suggestion:null,reason:'already-done'}`. It is a deterministic backstop for models that copy a
-   commit/push action from the transcript or from accepted examples.
+7. Semantic redundancy check: when the latest turn has at least one successful tool step and
+   `config.semanticCheck !== false`, call the same model a second time with only the successful step
+   summaries, the latest assistant response, and the candidate. `VERIFIER_SYSTEM_PROMPT` asks for exactly
+   `OK` or `REDUNDANT`; `REDUNDANT` returns `{ok:true,suggestion:null,reason:'already-done'}`. This is a
+   model judgment over all completed steps, not a fixed commit/push category. On verifier timeout/error or
+   an unparseable answer, fall back to `isCompletedActionSuggestion` (a narrow commit/push backstop) rather
+   than hiding a possibly useful suggestion. `semanticCheck:false` uses only that backstop.
 8. Cache: `${sessionId}\u0000${upToSeq}` keyed result, max `config.cacheMaxEntries` (default 32, LRU-ish
    Map), TTL `config.cacheTtlMs` (default 10 min). Cache negative results too, but with a 60 s TTL.
    Coalesce concurrent identical keys into one in-flight LLM call. Never cache across restart.
@@ -114,7 +116,8 @@ Defaults object (no Schemastery/imports; plain object merged over these):
 ```js
 { enabled: true, provider: '', model: '', maxSuggestionChars: 96, contextMessages: 10,
   maxToolEntries: 6, messageTextLimit: 480, maxPromptChars: 8000, maxTokens: 256, temperature: null,
-  timeoutMs: 20000, cacheTtlMs: 600000, cacheMaxEntries: 32, reasoningEffort: '' }
+  timeoutMs: 20000, cacheTtlMs: 600000, cacheMaxEntries: 32, reasoningEffort: '',
+  semanticCheck: true }
 ```
 
 ### Prompt (English system prompt, suggestion output language = conversation language)
@@ -125,8 +128,8 @@ in the conversation language); no quotes/markdown/labels; grounded in the latest
 (e.g. verify the result, fix a remaining failure, inspect the diff, clean up; avoid generic
 "commit and push" and never repeat an action that already succeeded); do not speak as the assistant and
 do not repeat the previous user message; output exactly `NONE` when nothing is likely. The user message
-contains the bounded transcript, session title, cwd, a `Completed actions in the latest turn:` line when
-applicable, and a final line `Predict the user's next message.`
+contains the bounded transcript, session title, cwd, a `Steps already completed successfully in the
+latest turn` list when applicable, and a final line `Predict the user's next message.`
 
 ## Client half — `client.js`
 

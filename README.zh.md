@@ -99,6 +99,7 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
     cacheTtlMs: 600000
     cacheMaxEntries: 32
     reasoningEffort: ''     # 留空 = 使用模型最低推理档
+    semanticCheck: true
     learningEnabled: true
     maxLearningExamples: 8
     maxLearningChars: 160
@@ -107,7 +108,8 @@ https://lazyfoxy33-dev.github.io/dsh-prompt-suggest/index.json
 ## 隐私
 
 - 预测请求发往该会话选择的模型提供商（或在配置中固定的 `provider`/`model`），且不写入会话日志。
-  请求会带上最近的对话上下文和有限的采纳/忽略示例，因此这部分内容会按模型提供商的服务条款离开本机。
+  请求会带上最近的对话上下文和有限的采纳/忽略示例；当本轮有已完成步骤时，语义去重检查还会把候选建议
+  和这些步骤摘要发给同一提供商。因此这部分内容会按模型提供商的服务条款离开本机。
 - Host 不写日志，不运行插件自带的服务器，无遥测、无分析；只在本机持久化学习数据（建议文本 + 计数），
   位于 `~/.dsh/storages/prompt_suggest_learning.json`。
 - 学习数据存在本机 DSH profile 中，可随时一键清空。

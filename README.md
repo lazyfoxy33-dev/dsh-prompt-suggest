@@ -107,6 +107,7 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
     cacheTtlMs: 600000
     cacheMaxEntries: 32
     reasoningEffort: ''     # empty = model's least reasoning effort
+    semanticCheck: true
     learningEnabled: true
     maxLearningExamples: 8
     maxLearningChars: 160
@@ -116,7 +117,9 @@ Override the bundle row in the profile's `cordis.patch.yml` (a patch replaces th
 
 - Prediction requests go to the model provider selected for the session (or pinned in `provider`/`model`
   configuration), and never write to the session log. A request includes recent conversation context plus
-  bounded accepted/dismissed examples, so that content leaves the machine under the model provider's terms.
+  bounded accepted/dismissed examples; when steps have completed, a short semantic redundancy check sends
+  the candidate and those step summaries to the same provider. That content leaves the machine under the
+  model provider's terms.
 - The Host logs nothing and runs no plugin-operated server, telemetry, or analytics. It persists only local
   learning data (suggestion texts + counters), at `~/.dsh/storages/prompt_suggest_learning.json`.
 - Learning data lives in the local DSH profile; clearing it is a click away.

@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt-suggest",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Next-prompt suggestions in the DSH composer: predicts your next message from the conversation and inserts it with Tab; learns from accept/dismiss.",
   "type": "module",
   "license": "MIT",

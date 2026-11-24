@@ -114,6 +114,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   cacheTtlMs: 600000,
   cacheMaxEntries: 32,
   reasoningEffort: '',
+  semanticCheck: true,
   learningEnabled: true,
   maxLearningExamples: 8,
   maxLearningChars: 160,
@@ -150,6 +151,19 @@ export const LEARNING_SYSTEM_PROMPT = [
   'The examples are phrasing references, not a queue of pending tasks: never copy an action from an example unless the current transcript shows that action is still needed.',
   'Never repeat a dismissed suggestion, or a close variant of a dismissed suggestion.',
   'If the user rejects most suggestions, propose a next message only when it is highly likely, and keep it very short.',
+].join('\n')
+
+/**
+ * Second-pass verifier. The generator sees a long transcript and can still
+ * paraphrase a completed action; this pass asks the same model to compare the
+ * candidate against the compact list of successful steps from the latest turn.
+ */
+export const VERIFIER_SYSTEM_PROMPT = [
+  'You are a strict semantic redundancy checker for a coding-agent next-message suggestion.',
+  'You will see the steps that already completed successfully in the latest turn, the latest assistant response, and a candidate next user message.',
+  'Mark the candidate REDUNDANT when it asks the user to perform, repeat, or trivially rephrase a step that already completed, or when it merely restates a completed step.',
+  'Do not mark REDUNDANT merely because the candidate follows from the previous step; only when the requested action is already done.',
+  'Reply exactly OK or REDUNDANT, with no other text.',
 ].join('\n')
 
 // ---------------------------------------------------------------------------
@@ -226,6 +240,7 @@ export function normalizeConfig(config) {
     cacheTtlMs: integerOption(raw.cacheTtlMs, defaults.cacheTtlMs, 0, 86_400_000),
     cacheMaxEntries: integerOption(raw.cacheMaxEntries, defaults.cacheMaxEntries, 0, 1024),
     reasoningEffort: stringOption(raw.reasoningEffort, defaults.reasoningEffort),
+    semanticCheck: raw.semanticCheck === undefined ? defaults.semanticCheck : raw.semanticCheck !== false,
     learningEnabled: raw.learningEnabled === undefined ? defaults.learningEnabled : raw.learningEnabled !== false,
     maxLearningExamples: integerOption(raw.maxLearningExamples, defaults.maxLearningExamples, 0, 20),
     maxLearningChars: integerOption(raw.maxLearningChars, defaults.maxLearningChars, 16, 400),
@@ -1192,7 +1207,7 @@ function titleString(value) {
  * line. Without learning — or when no prompt budget remains — both outputs are
  * byte-identical to the pre-learning prompt.
  *
- * @param input - `{transcript, title, cwd, learning, completedActions, maxPromptChars}`.
+ * @param input - `{transcript, title, cwd, learning, completedSteps, maxPromptChars}`.
  * @returns `{system, user}`; `user` ends with the contract's final line.
  */
 export function buildPrompt(input = {}) {
@@ -1200,8 +1215,11 @@ export function buildPrompt(input = {}) {
   const transcript = typeof source.transcript === 'string' ? source.transcript : ''
   const title = typeof source.title === 'string' ? source.title : ''
   const cwd = typeof source.cwd === 'string' ? source.cwd : ''
-  const completedActions = Array.isArray(source.completedActions)
-    ? source.completedActions.filter((action) => action === 'commit' || action === 'push')
+  const completedSteps = Array.isArray(source.completedSteps)
+    ? source.completedSteps
+        .filter((step) => typeof step === 'string' && step.trim() !== '')
+        .map((step) => truncateText(normalizeWhitespace(step), 160))
+        .slice(-12)
     : []
   const maxPromptChars = integerOption(source.maxPromptChars, DEFAULT_CONFIG.maxPromptChars, 256, 200_000)
   const lines = []
@@ -1209,10 +1227,9 @@ export function buildPrompt(input = {}) {
   if (cwd !== '') lines.push(`Working directory: ${cwd}`)
   lines.push('Conversation transcript:')
   lines.push(transcript !== '' ? transcript : '(no conversation text)')
-  if (completedActions.length > 0) {
-    lines.push(
-      `Completed actions in the latest turn: ${completedActions.join(', ')}. Do not suggest repeating these actions; choose a genuinely new next step.`,
-    )
+  if (completedSteps.length > 0) {
+    lines.push('Steps already completed successfully in the latest turn (do not repeat or trivially rephrase):')
+    for (const step of completedSteps) lines.push(`- ${step}`)
   }
 
   let learningSection = ''
@@ -1621,6 +1638,104 @@ function cwdOf(header) {
   return truncateText(normalizeWhitespace(header.cwd), MAX_CWD_CHARS)
 }
 
+/** Slice the bounded window to the latest human turn, if one is present. */
+function latestTurnEntries(entries) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (entries[index].role === 'user') return entries.slice(index)
+  }
+  return entries
+}
+
+/** Successful tool steps from the latest turn, formatted for the prompt/verifier. */
+function completedStepsFromEntries(entries) {
+  return latestTurnEntries(entries)
+    .filter((entry) => entry.role === 'tool' && entry.status === 'ok' && typeof entry.text === 'string')
+    .map((entry) => entry.text)
+    .slice(-12)
+}
+
+/** Latest assistant text in the bounded window (empty when absent). */
+function latestAssistantText(entries) {
+  const turn = latestTurnEntries(entries)
+  for (let index = turn.length - 1; index >= 0; index -= 1) {
+    if (turn[index].role === 'assistant' && typeof turn[index].text === 'string') return turn[index].text
+  }
+  return ''
+}
+
+/**
+ * Second-pass semantic check. Returns `ok`, `redundant`, or `unknown` when the
+ * verifier could not answer; an unknown result falls back to the narrow
+ * commit/push guard rather than hiding a possibly useful suggestion.
+ */
+async function verifySuggestion(deps, config, model, requestSignal, steps, candidate, assistantText) {
+  if (config.semanticCheck === false || steps.length === 0) return 'skipped'
+  const llm = serviceOf(deps, 'llm')
+  if (!isRecord(llm)) return 'unknown'
+  const signal = combineAbortSignals([requestSignal, timeoutSignal(Math.min(config.timeoutMs, 8000))])
+  if (signal !== undefined && signal.aborted) return 'unknown'
+  const user = [
+    'Steps already completed successfully in the latest turn:',
+    ...steps.map((step) => `- ${step}`),
+    '',
+    'Latest assistant response:',
+    truncateText(assistantText, 1200) || '(none)',
+    '',
+    'Candidate next user message:',
+    candidate,
+  ].join('\n')
+  const messages = [{ role: 'user', content: [{ type: 'text', text: user }] }]
+  const controls = {
+    provider: model.provider,
+    model: model.model,
+    maxTokens: 12,
+    ...(model.reasoningEffort !== undefined ? { reasoningEffort: model.reasoningEffort } : {}),
+  }
+  let collected = ''
+  try {
+    let stream
+    if (typeof llm.prepareCall === 'function') {
+      const call = await llm.prepareCall(controls, signal, (current, modelInfo) => {
+        if (current.reasoningEffort !== undefined) return current
+        const effort = modelInfo?.reasoning?.efforts?.[0]?.id
+        return effort === undefined ? current : { ...current, reasoningEffort: effort }
+      })
+      stream = call.stream({
+        ...call.config,
+        messages,
+        system: VERIFIER_SYSTEM_PROMPT,
+        ...(signal !== undefined ? { signal } : {}),
+      })
+    } else if (typeof llm.stream === 'function') {
+      stream = llm.stream({
+        ...controls,
+        messages,
+        system: VERIFIER_SYSTEM_PROMPT,
+        ...(signal !== undefined ? { signal } : {}),
+      })
+    } else {
+      return 'unknown'
+    }
+    for await (const chunk of stream) {
+      if (!isRecord(chunk)) continue
+      if (chunk.type === 'text-delta' && typeof chunk.text === 'string') {
+        collected += chunk.text
+        if (collected.length > 48) break
+      }
+      if (chunk.type === 'finish') {
+        const kind = isRecord(chunk.reason) ? chunk.reason.kind : undefined
+        if (kind === 'error' || kind === 'aborted') return 'unknown'
+      }
+    }
+  } catch {
+    return 'unknown'
+  }
+  const answer = normalizeWhitespace(collected).toUpperCase()
+  if (answer.startsWith('REDUNDANT')) return 'redundant'
+  if (answer.startsWith('OK')) return 'ok'
+  return 'unknown'
+}
+
 /** Accumulate one raw completion (conditioned by the stored learning record) into a result. */
 async function generateSuggestion(deps, config, snapshot, sessionId, upToSeq, requestSignal) {
   const transcript = extractTranscript(snapshot.events, config)
@@ -1642,12 +1757,14 @@ async function generateSuggestion(deps, config, snapshot, sessionId, upToSeq, re
   // The durable learning record conditions the prompt and the dismissed filter.
   // A missing/broken store simply yields `undefined` (no learning).
   const learning = await readLearningProfile(deps, config)
+  const completedSteps = completedStepsFromEntries(transcript.entries)
+  const assistantText = latestAssistantText(transcript.entries)
   const prompt = buildPrompt({
     transcript: transcript.text,
     title,
     cwd,
     learning,
-    completedActions: transcript.completedActions,
+    completedSteps,
     maxPromptChars: config.maxPromptChars,
   })
   const signal = combineAbortSignals([requestSignal, timeoutSignal(config.timeoutMs)])
@@ -1725,8 +1842,29 @@ async function generateSuggestion(deps, config, snapshot, sessionId, upToSeq, re
     lastUserText: transcript.lastUserText,
   })
   if (suggestion === null) return nullResult('empty')
-  if (isCompletedActionSuggestion(suggestion, transcript.completedActions)) return nullResult('already-done')
   if (isDismissedSuggestion(suggestion, learning)) return nullResult('dismissed')
+
+  // The semantic check is the primary judgment: it compares the candidate with
+  // every successful step in the latest turn, not only commit/push. When the
+  // verifier is unavailable, fall back to the narrow deterministic guard so a
+  // clear "commit/push" repeat still cannot slip through.
+  let alreadyDone = false
+  if (config.semanticCheck && completedSteps.length > 0) {
+    const verdict = await verifySuggestion(
+      deps,
+      config,
+      model,
+      requestSignal,
+      completedSteps,
+      suggestion,
+      assistantText,
+    )
+    if (verdict === 'redundant') alreadyDone = true
+    else if (verdict === 'unknown') alreadyDone = isCompletedActionSuggestion(suggestion, transcript.completedActions)
+  } else {
+    alreadyDone = isCompletedActionSuggestion(suggestion, transcript.completedActions)
+  }
+  if (alreadyDone) return nullResult('already-done')
   return {
     kind: 'ok',
     suggestion: {
