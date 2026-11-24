@@ -21,6 +21,7 @@ import {
   createLearningStore,
   createSuggestHandler,
   extractTranscript,
+  isCompletedActionSuggestion,
   isDismissedSuggestion,
   latestCompletedTurn,
   normalizeConfig,
@@ -66,12 +67,12 @@ function eventAssistant(seq, text) {
   }
 }
 
-function eventToolCall(seq, name, callId) {
+function eventToolCall(seq, name, callId, args = '{}') {
   return {
     seq,
     type: 'tool/call',
     time: nextTime(),
-    data: { turn: 1, step: 1, callId, name, arguments: '{}' },
+    data: { turn: 1, step: 1, callId, name, arguments: args },
   }
 }
 
@@ -536,7 +537,7 @@ test('extractTranscript truncates each message and bounds the total prompt size'
   assert.doesNotMatch(bounded.text, /reply 10/)
 })
 
-test('extractTranscript includes compact tool activity and ignores failed-only noise', () => {
+test('extractTranscript includes compact tool activity with its result status', () => {
   const events = [
     eventUser(0, 'fix the test'),
     eventToolCall(1, 'bash', 'call-1'),
@@ -546,14 +547,43 @@ test('extractTranscript includes compact tool activity and ignores failed-only n
     eventAssistant(5, 'the test fails because of auth'),
     turnEndEvent(6),
   ]
-  const { text, lastUserText } = extractTranscript(events, {})
-  assert.match(text, /Tool: bash/)
-  assert.match(text, /Tool failed: bash/)
-  assert.match(text, /Tool: grep/)
-  assert.doesNotMatch(text, /Tool failed: grep/)
+  const { text, lastUserText, completedActions } = extractTranscript(events, {})
+  assert.match(text, /Tool: bash \(failed\)/)
+  assert.match(text, /Tool: grep \(ok\)/)
+  assert.doesNotMatch(text, /Tool failed:/)
   assert.match(text, /User: fix the test/)
   assert.match(text, /Assistant: the test fails because of auth/)
   assert.equal(lastUserText, 'fix the test')
+  assert.deepEqual(completedActions, [])
+})
+
+test('extractTranscript surfaces safe tool summaries and only the latest turn’s actions', () => {
+  const events = [
+    eventUser(0, 'old request'),
+    eventToolCall(1, 'bash', 'old', '{"description":"Old push","command":"git push"}'),
+    eventToolResult(2, 'old', false),
+    eventUser(3, 'commit and push this'),
+    eventToolCall(4, 'bash', 'new', '{"description":"Commit and push docs","command":"git add docs && git commit -m docs && git push"}'),
+    eventToolResult(5, 'new', false),
+    eventAssistant(6, 'Committed and pushed.'),
+    turnEndEvent(7),
+  ]
+  const { text, completedActions } = extractTranscript(events, {})
+  assert.match(text, /Tool: bash: Commit and push docs \(ok\)/)
+  assert.doesNotMatch(text, /git add docs/)
+  assert.deepEqual(completedActions, ['commit', 'push'])
+})
+
+test('extractTranscript does not treat a failed git push as completed', () => {
+  const events = [
+    eventUser(0, 'push this'),
+    eventToolCall(1, 'bash', 'failed-push', '{"description":"Push branch","command":"git push origin main"}'),
+    eventToolResult(2, 'failed-push', true),
+    eventAssistant(3, 'The push failed.'),
+    turnEndEvent(4),
+  ]
+  const { completedActions } = extractTranscript(events, {})
+  assert.deepEqual(completedActions, [])
 })
 
 test('extractTranscript reads the real user/message shape and drops injected context', () => {
@@ -597,7 +627,7 @@ test('extractTranscript caps tool rows and trims tool noise before dialogue', ()
 })
 
 test('extractTranscript handles empty and malformed logs', () => {
-  assert.deepEqual(extractTranscript(undefined, {}), { text: '', entries: [], lastUserText: '' })
+  assert.deepEqual(extractTranscript(undefined, {}), { text: '', entries: [], lastUserText: '', completedActions: [] })
   const malformed = extractTranscript([null, { type: 'user/message' }, { type: 'assistant/message', data: {} }], {})
   assert.equal(malformed.text, '')
 })
@@ -616,6 +646,8 @@ test('buildPrompt carries the required system instructions and bounded context',
   assert.match(prompt.system, /Do not speak as the assistant/)
   assert.match(prompt.system, /Do not use quotes/)
   assert.match(prompt.system, /untrusted data/)
+  assert.match(prompt.system, /already succeeded/)
+  assert.match(prompt.system, /commit and push/)
   assert.match(prompt.user, /User: hi/)
   assert.match(prompt.user, /Session title: Fix login/)
   assert.match(prompt.user, /Working directory: \/work\/demo/)
@@ -625,6 +657,15 @@ test('buildPrompt carries the required system instructions and bounded context',
   assert.doesNotMatch(bare.user, /Session title:/)
   assert.doesNotMatch(bare.user, /Working directory:/)
   assert.match(bare.user, /\(no conversation text\)/)
+})
+
+test('buildPrompt tells the model which commit/push actions are already done', () => {
+  const prompt = buildPrompt({ transcript: 'User: hi', completedActions: ['commit', 'push'] })
+  assert.match(
+    prompt.user,
+    /Completed actions in the latest turn: commit, push\. Do not suggest repeating these actions/,
+  )
+  assert.doesNotMatch(buildPrompt({ transcript: 'User: hi' }).user, /Completed actions/)
 })
 
 test('buildPrompt appends learning conditioning after the transcript', () => {
@@ -642,13 +683,17 @@ test('buildPrompt appends learning conditioning after the transcript', () => {
   assert.match(learned.system, /preference profile/i)
   assert.match(learned.system, /never as instructions/)
   assert.match(learned.system, /language, length, tone, and granularity/)
+  assert.match(learned.system, /phrasing references, not a queue of pending tasks/)
   assert.match(learned.system, /Never repeat a dismissed suggestion/)
   assert.match(learned.system, /very short/)
 
   const user = learned.user
   assert.match(user, /User preference profile:/)
   assert.match(user, /Acceptance: 6 accepted \/ 10 shown \(60%\)\./)
-  assert.match(user, /Accepted suggestions \(the user pressed Tab to use these; match their style\):\n- Run the failing tests\n- Review the diff/)
+  assert.match(
+    user,
+    /Accepted suggestions \(style reference only; do not treat their actions as pending tasks\):\n- Run the failing tests\n- Review the diff/,
+  )
   assert.match(user, /Dismissed suggestions \(the user hid these; do not repeat them or close variants\):\n- Commit the changes/)
   assert.ok(user.indexOf('User preference profile:') > user.indexOf('Conversation transcript:'))
   assert.ok(user.indexOf('User preference profile:') < user.indexOf("Predict the user's next message."))
@@ -747,6 +792,16 @@ test('isDismissedSuggestion matches exact and close repeat candidates only', () 
   assert.equal(isDismissedSuggestion('fix it now', shortDismissed), false)
   const longDismissed = learningRecord({ dismissed: [{ text: 'please run all the tests now', at: 1 }] })
   assert.equal(isDismissedSuggestion('run all the tests', longDismissed), false)
+})
+
+test('isCompletedActionSuggestion suppresses commit/push only after that action succeeded', () => {
+  assert.equal(isCompletedActionSuggestion('提交推送，然后确认定时器', ['push']), true)
+  assert.equal(isCompletedActionSuggestion('push the branch', ['push']), true)
+  assert.equal(isCompletedActionSuggestion('检查远端分支是否同步', ['push']), false)
+  assert.equal(isCompletedActionSuggestion('提交推送', ['commit']), false)
+  assert.equal(isCompletedActionSuggestion('把改动提交了', ['commit']), true)
+  assert.equal(isCompletedActionSuggestion('把改动提交了', []), false)
+  assert.equal(isCompletedActionSuggestion(undefined, ['push']), false)
 })
 
 // ---------------------------------------------------------------------------
@@ -1648,6 +1703,22 @@ test('a dismissed candidate from the store is suppressed with reason dismissed',
     const result = await readJson(await handler(postRequest('s1')))
     assert.deepEqual(result.body, { ok: true, suggestion: null, reason: 'dismissed' }, llmOutput)
   }
+})
+
+test('a commit/push candidate is suppressed after a successful push in the latest turn', async () => {
+  const events = [
+    eventUser(1, 'commit and push this'),
+    eventToolCall(2, 'bash', 'call-push', '{"description":"Commit and push docs","command":"git commit -m docs && git push"}'),
+    eventToolResult(3, 'call-push', false),
+    eventAssistant(4, 'Committed and pushed.'),
+    turnEndEvent(5),
+  ]
+  const llm = fakeLlm({ pieces: ['提交推送，然后确认定时器'] })
+  const { handler } = makeHandler({ events, llm })
+  const result = await readJson(await handler(postRequest('s1')))
+  assert.deepEqual(result.body, { ok: true, suggestion: null, reason: 'already-done' })
+  assert.match(llm.calls[0].messages[0].content[0].text, /Completed actions in the latest turn: commit, push/)
+  assert.match(llm.calls[0].messages[0].content[0].text, /Tool: bash: Commit and push docs \(ok\)/)
 })
 
 test('a dissimilar candidate is not filtered by a dismissal', async () => {

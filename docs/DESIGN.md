@@ -70,12 +70,15 @@ Never include conversation text in the response or in errors/logs.
 2. Completed turn required: last `turn/end` event in the log must have `data.reason.kind === 'completed'`
    (equivalently, a live session whose last turn ended completed). Otherwise return `no-completed-turn`.
 3. Transcript: walk events ascending, keep text from human `user/message` (`source.kind === 'user'`),
-   `assistant/message` (text blocks), and compact tool activity from `tool/call` names / failed
-   `tool/result` names. Keep the last `config.contextMessages` user/assistant texts (default 10), each
-   truncated to `config.messageTextLimit` (default 480) chars; cap tool rows to the most recent
-   `config.maxToolEntries` (default 6); total transcript bounded by `config.maxPromptChars` (default
-   8000) by dropping tool rows first and then the oldest remaining entries, so the latest request and
-   reply survive longest. Include session title if
+   `assistant/message` (text blocks), and compact tool activity: summarize each `tool/call` from its
+   `description`/recognized command action/path hint and append `(ok)` or `(failed)` from the matching
+   `tool/result`; never render raw command arguments. Keep the last `config.contextMessages` user/assistant
+   texts (default 10), each truncated to `config.messageTextLimit` (default 480) chars; cap tool rows to the
+   most recent `config.maxToolEntries` (default 6); total transcript bounded by `config.maxPromptChars`
+   (default 8000) by dropping tool rows first and then the oldest remaining entries, so the latest request
+   and reply survive longest. Derive `completedActions` (`commit`, `push`) only from successful tool calls
+   after the latest human message, and pass them to `buildPrompt` as an explicit
+   `Completed actions in the latest turn: …` line. Include session title if
    `ctx.get('sessionQuery')?.readTitle(id)` resolves (best effort, ignore failure) and `cwd` from the
    header when present.
 4. Model: `config.provider` + `config.model` when both set; else `session.requestHeader()?.config`
@@ -96,10 +99,15 @@ Never include conversation text in the response or in errors/logs.
    period; reject empty, `NONE`/`NONE.`/`无`/`N/A`, text equal to the latest user message, or text longer
    than `config.maxSuggestionChars` (default 96) **after** truncation? No — reject if longer than
    2 × limit, truncate at a word/character boundary to the limit otherwise.
-7. Cache: `${sessionId}\u0000${upToSeq}` keyed result, max `config.cacheMaxEntries` (default 32, LRU-ish
+7. Completed-action guard: if the latest turn already succeeded at `push`, reject any candidate mentioning
+   commit/push; if it only succeeded at `commit`, reject commit-only candidates but allow "commit and push"
+   (the push is still pending). This is `isCompletedActionSuggestion`; rejection is
+   `{ok:true,suggestion:null,reason:'already-done'}`. It is a deterministic backstop for models that copy a
+   commit/push action from the transcript or from accepted examples.
+8. Cache: `${sessionId}\u0000${upToSeq}` keyed result, max `config.cacheMaxEntries` (default 32, LRU-ish
    Map), TTL `config.cacheTtlMs` (default 10 min). Cache negative results too, but with a 60 s TTL.
    Coalesce concurrent identical keys into one in-flight LLM call. Never cache across restart.
-8. `config.enabled === false` → 200 `{ok:true,suggestion:null,reason:'disabled'}`.
+9. `config.enabled === false` → 200 `{ok:true,suggestion:null,reason:'disabled'}`.
 
 Defaults object (no Schemastery/imports; plain object merged over these):
 
@@ -113,10 +121,12 @@ Defaults object (no Schemastery/imports; plain object merged over these):
 
 System prompt must state: predict the user's single next message in an ongoing coding-agent
 conversation; output one short imperative message the USER would send; 2–16 words (or the equivalent
-in the conversation language); no quotes/markdown/labels; grounded in the latest state (e.g. run the
-tests, fix the specific failure, review the diff, commit); do not speak as the assistant and do not
-repeat the previous user message; output exactly `NONE` when nothing is likely. The user message
-contains the bounded transcript, session title, cwd, and a final line `Predict the user's next message.`
+in the conversation language); no quotes/markdown/labels; grounded in the latest state and tool status
+(e.g. verify the result, fix a remaining failure, inspect the diff, clean up; avoid generic
+"commit and push" and never repeat an action that already succeeded); do not speak as the assistant and
+do not repeat the previous user message; output exactly `NONE` when nothing is likely. The user message
+contains the bounded transcript, session title, cwd, a `Completed actions in the latest turn:` line when
+applicable, and a final line `Predict the user's next message.`
 
 ## Client half — `client.js`
 
